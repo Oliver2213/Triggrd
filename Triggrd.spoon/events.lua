@@ -294,6 +294,78 @@ Triggrd.pingConsecutiveFailures = 0
 Triggrd.pingConsecutiveSuccesses = 0
 Triggrd.lastPingReachable = nil
 
+-- Flap detection state
+Triggrd.flapTransitions = {}
+Triggrd.flapActive = false
+Triggrd.flapReminderInterval = nil
+Triggrd.flapReminderTimer = nil
+
+local function pruneTransitions()
+    local now = hs.timer.secondsSinceEpoch()
+    local cutoff = now - Triggrd.flapWindow
+    while #Triggrd.flapTransitions > 0 and Triggrd.flapTransitions[1] < cutoff do
+        table.remove(Triggrd.flapTransitions, 1)
+    end
+end
+
+local function stopFlapReminder()
+    if Triggrd.flapReminderTimer then
+        Triggrd.flapReminderTimer:stop()
+        Triggrd.flapReminderTimer = nil
+    end
+    Triggrd.flapReminderInterval = nil
+end
+
+local function flapReminder()
+    pruneTransitions()
+    if #Triggrd.flapTransitions >= Triggrd.flapThreshold then
+        -- still flapping, fire reminder and escalate interval
+        print("internet: still flapping (" .. #Triggrd.flapTransitions
+            .. " transitions in window, next reminder in "
+            .. Triggrd.flapReminderInterval .. "s)")
+        Triggrd:handleEvent({
+            tags = {"internet", "flapping"},
+            data = { textArgs = {tostring(#Triggrd.flapTransitions)} }
+        })
+        Triggrd.flapReminderInterval = math.min(
+            Triggrd.flapReminderInterval * 2, Triggrd.flapReminderMax)
+        Triggrd.flapReminderTimer = hs.timer.doAfter(
+            Triggrd.flapReminderInterval, flapReminder)
+    else
+        -- no longer flapping
+        Triggrd.flapActive = false
+        stopFlapReminder()
+        local routeExists = Triggrd.ipv4Reachable or Triggrd.ipv6Reachable
+        if routeExists and Triggrd.lastPingReachable then
+            print("internet: stable (flapping ended)")
+            Triggrd:handleEvent({
+                tags = {"internet", "stable"},
+                data = { textArgs = {"stable"} }
+            })
+        else
+            print("internet: flapping ended but still offline, suppressing stable event")
+        end
+    end
+end
+
+local function checkFlapping()
+    pruneTransitions()
+    local count = #Triggrd.flapTransitions
+    if count >= Triggrd.flapThreshold and not Triggrd.flapActive then
+        -- new flap episode
+        Triggrd.flapActive = true
+        Triggrd.flapReminderInterval = math.min(Triggrd.flapWindow, Triggrd.flapReminderMax)
+        print("internet: flapping detected (" .. count .. " transitions in window)")
+        Triggrd:handleEvent({
+            tags = {"internet", "flapping"},
+            data = { textArgs = {tostring(count)} }
+        })
+        -- schedule escalating reminders
+        Triggrd.flapReminderTimer = hs.timer.doAfter(
+            Triggrd.flapReminderInterval, flapReminder)
+    end
+end
+
 local function updateInternetState()
     local routeExists = Triggrd.ipv4Reachable or Triggrd.ipv6Reachable
     -- active ping is authoritative once it has data; passive is the fast initial check
@@ -315,6 +387,9 @@ local function updateInternetState()
             tags = {"internet", tag},
             data = { textArgs = {tag} }
         })
+        -- record transition for flap detection
+        table.insert(Triggrd.flapTransitions, hs.timer.secondsSinceEpoch())
+        checkFlapping()
     end
 end
 

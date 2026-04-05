@@ -188,6 +188,9 @@ These can be set in `init.lua`:
 | `pingMaxInterval` | `60` | Seconds between pings when connection is stable |
 | `pingMinInterval` | `3` | Fastest ping rate when connection is degraded |
 | `pingConfirmThreshold` | `2` | Consecutive failures (or successes) required before changing state |
+| `flapWindow` | `600` | Seconds to look back for state transitions |
+| `flapThreshold` | `4` | Transitions in window to trigger flapping (4 = two full down/up cycles) |
+| `flapReminderMax` | `300` | Max seconds between repeated flapping reminders |
 
 #### internet.reachable
 
@@ -196,6 +199,18 @@ Fires when internet connectivity is confirmed after being unreachable. Requires 
 #### internet.unreachable
 
 Fires when internet connectivity is lost. This can happen instantly (route down) or after `pingConfirmThreshold` consecutive failed pings.
+
+Note: `internet.reachable` and `internet.unreachable` fire independently of flap detection. Users can choose which automations to create based on what feedback they want.
+
+#### internet.flapping
+
+Fires when the connection is rapidly toggling between reachable and unreachable (`flapThreshold` transitions within `flapWindow` seconds). On first detection, fires immediately. If still flapping, fires escalating reminders starting at the lesser of `flapWindow` or `flapReminderMax`, then doubling each time up to `flapReminderMax`.
+
+TXT files may reference one formatstring argument: the number of transitions in the window.
+
+#### internet.stable
+
+Fires when a flapping episode ends and the connection is confirmed online (route exists and pings succeeding). If flapping ends because the connection went fully offline, this event is suppressed — `internet.unreachable` already covers that case.
 
 ### Ping Events (ping)
 

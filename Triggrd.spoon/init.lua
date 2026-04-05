@@ -12,6 +12,11 @@ local Triggrd = {
     pingMinInterval = 3,    -- fastest ping rate when degraded
     pingConfirmThreshold = 2, -- consecutive failures/successes before state change
 
+    -- Flap detection configuration
+    flapWindow = 600,       -- seconds to look back for transitions
+    flapThreshold = 4,      -- transitions in window to trigger flapping
+    flapReminderMax = 300,  -- max seconds between flapping reminders
+
     automationHandlers = {
         lua = function(path)
             return function(eventData)
