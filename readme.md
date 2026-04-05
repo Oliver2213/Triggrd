@@ -2,7 +2,7 @@
 
 React to various system events by creating files with specific names.
 ## What's the fork?
-This fork adds wifi and internet connectivity events: notifications when wifi signal strength changes, you connect/disconnect or switch networks, internet becomes reachable or unreachable (verified by active pings, not just route checks), and flap detection that alerts you when your connection is rapidly bouncing between up and down. See the WiFi Events, Internet Reachability Events, and Ping Events sections below for details and configuration.
+This fork adds wifi and internet connectivity events: notifications when wifi signal strength changes, you connect/disconnect or switch networks, internet becomes reachable or unreachable (verified by active pings, not just route checks), and flap detection that alerts you when your connection is rapidly bouncing between up and down. The default automations directory has also been changed to `~/Triggrd-automations`. See the WiFi Events, Internet Reachability Events, and Ping Events sections below for details and configuration.
 
 ## Setup
 
@@ -14,7 +14,7 @@ This fork adds wifi and internet connectivity events: notifications when wifi si
 hs.loadSpoon("Triggrd")
 spoon.Triggrd:start()
 ````
-* There is a set of example event automations in the *My Example Triggrd Automations* directory in this repository. Copy or symlink it into your documents folder if you wish, making sure to remove the word "Example".
+* There is a set of example event automations in the *My Example Triggrd Automations* directory in this repository. Copy or symlink its contents into `~/Triggrd-automations` (or your configured automations path).
 
 ### Migrating from SoundNote
 
@@ -24,7 +24,7 @@ Note for blind users: The Triggrd menu in menu extras is spoken as "Hammerspoon:
 
 ## Basic concepts
 
-* All of your automations will be in a path of your choosing. By default, this is `~/documents/My Triggrd Automations`. You can change this by modifying the `userAutomationsPath` variable in the spoon's `init.lua`.
+* All of your automations will be in a path of your choosing. By default, this is `~/Triggrd-automations`. You can change this by modifying the `userAutomationsPath` variable in the spoon's `init.lua`.
 * Any file or folder in the automations directory whose name *beginns with a dot (.)* will be ignored by Triggrd.
 * Every event is composed of several *tags*. To react to an event, you can create a file in the automations directory or any of its subdirectories with a name composed of tags separated by dots (.). The list of supported extensions is down below. For example, `app.launched.wav`, `battery.20percent.down.lua`, or `power.txt`.
 * An automation will only trigger if the event contains *all* of its tags. `volume.wav` will play every time any event happens with any volume, `app.launched.Safari` will trigger when Safari is launched, `battery.40percent.txt` will be spoken when the battery reaches 40% either charging or discharging.

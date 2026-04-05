@@ -37,7 +37,7 @@ local Triggrd = {
 local logger = hs.logger.new("Triggrd")
 logger.setLogLevel("info")
 
-local userAutomationsPath = "~/Documents/My Triggrd Automations"
+local userAutomationsPath = "~/Triggrd-automations"
 
 local registeredAutomations = {}
 
