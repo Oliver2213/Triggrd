@@ -1,9 +1,16 @@
 local Triggrd = {
     name = "Triggrd",
-    version = "0.1",
-    author = "Guillem León <guilevi2000@gmail.com>; Mikolaj Holysz <miki123211@gmail.com>",
+    version = "0.2",
+    author = "Guillem León <guilevi2000@gmail.com>; Mikolaj Holysz <miki123211@gmail.com>; Blake Oliver <blake@smoll.dev>",
     license = "The Unlicense, <https://unlicense.org>",
-    homepage = "https://github.com/guilevi/Triggrd",
+    homepage = "https://github.com/Oliver2213/Triggrd",
+
+    -- Internet ping configuration
+    pingTargetsV4 = {"1.1.1.1", "9.9.9.9"},
+    pingTargetsV6 = {"2606:4700:4700::1111", "2620:fe::fe"}, -- used when v6 route exists
+    pingMaxInterval = 60,   -- seconds between pings when stable
+    pingMinInterval = 3,    -- fastest ping rate when degraded
+    pingConfirmThreshold = 2, -- consecutive failures/successes before state change
 
     automationHandlers = {
         lua = function(path)

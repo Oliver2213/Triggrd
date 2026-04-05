@@ -101,6 +101,120 @@ The second tag may be the contents of the pasteboard. These will also be passed 
 
 This event seems to fire whenever a change occurs in the screen configuration or layout.
 
+### WiFi Events (wifi)
+
+#### connect
+
+Fires when wifi connects to a network from a disconnected state. Includes a tag with the network name.
+
+TXT files may reference one formatstring argument: the network name.
+
+* `wifi.connect.<networkName>` - connected to a specific network
+
+#### disconnect
+
+Fires when wifi disconnects from a network.
+
+TXT files may reference one formatstring argument: the interface name.
+
+#### SSIDChange
+
+Fires when switching from one network to another (already connected). Includes a tag with the new network name.
+
+TXT files may reference one formatstring argument: the new network name.
+
+* `wifi.SSIDChange.<networkName>` - switched to a specific network
+
+#### BSSIDChange
+
+Fires when the base station (access point) changes.
+
+TXT files may reference one formatstring argument: the BSSID.
+
+#### countryCodeChange
+
+Fires when the wifi country code changes. Includes a tag with the new country code.
+
+TXT files may reference one formatstring argument: the country code.
+
+#### linkQualityChange
+
+Fires when the signal quality changes. Includes an RSSI tag using the absolute value of the RSSI (e.g. `rssi65` for an RSSI of -65), plus `up` or `down` tags indicating direction of change.
+
+TXT files may reference two formatstring arguments: the RSSI value and the transmit rate.
+
+* `wifi.linkQualityChange.rssi65` - signal at exactly -65 dBm
+* `wifi.linkQualityChange.down` - signal got weaker
+* `wifi.linkQualityChange.up` - signal got stronger
+
+#### modeChange
+
+Fires when the wifi operating mode changes.
+
+TXT files may reference one formatstring argument: the interface name.
+
+#### powerChange
+
+Fires when wifi is turned on or off. Includes a tag for the power state.
+
+TXT files may reference one formatstring argument: the power state.
+
+* `wifi.powerChange.powerOn`
+* `wifi.powerChange.powerOff`
+
+#### scanCacheUpdated
+
+Fires when the wifi scan cache is updated. Note: this event may fire frequently.
+
+TXT files may reference one formatstring argument: the interface name.
+
+### Internet Reachability Events (internet)
+
+Monitors internet connectivity using two layers:
+
+1. **Passive route detection** — uses `hs.network.reachability.internet()` to instantly detect when network interfaces go up or down (IPv4 and IPv6).
+2. **Active ping verification** — periodically pings known public DNS servers to detect actual packet loss, even when the route still exists (e.g. flaky wifi, ISP outage).
+
+The ping interval adapts automatically: when pings fail, it drops to the minimum interval immediately for fast detection. When pings succeed, the interval gradually doubles back up to the maximum.
+
+#### Configuration
+
+These can be set in `init.lua`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `pingTargetsV4` | `{"1.1.1.1", "9.9.9.9"}` | IPv4 addresses to ping |
+| `pingTargetsV6` | `{"2606:4700:4700::1111", "2620:fe::fe"}` | IPv6 addresses to ping (only used when a v6 route exists) |
+| `pingMaxInterval` | `60` | Seconds between pings when connection is stable |
+| `pingMinInterval` | `3` | Fastest ping rate when connection is degraded |
+| `pingConfirmThreshold` | `2` | Consecutive failures (or successes) required before changing state |
+
+#### internet.reachable
+
+Fires when internet connectivity is confirmed after being unreachable. Requires `pingConfirmThreshold` consecutive successful pings.
+
+#### internet.unreachable
+
+Fires when internet connectivity is lost. This can happen instantly (route down) or after `pingConfirmThreshold` consecutive failed pings.
+
+### Ping Events (ping)
+
+Individual ping results, fired on every check cycle. Useful for audible feedback while connectivity is degraded.
+
+#### ping.success
+
+Fires when a ping check succeeds. Includes a tag with the address that responded (e.g. `{"ping", "success", "1.1.1.1"}`).
+
+TXT files may reference one formatstring argument: the address that responded.
+
+* `ping.success.1.1.1.1` - specifically 1.1.1.1 responded
+
+#### ping.fail
+
+Fires when all ping targets fail in a check cycle. Includes tags for each target that was tried.
+
+TXT files may reference one formatstring argument: the consecutive failure count.
+
 ### Volume Events (volume)
 
 * `didMount`

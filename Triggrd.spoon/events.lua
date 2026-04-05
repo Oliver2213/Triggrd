@@ -172,7 +172,244 @@ function updateAppList(eventType, app)
     end
 end
 
-Triggrd.wifiWatcher=hs.wifi.watcher.new(function(type,wifiInfo)
-    print('info'..hs.inspect.inspect(wifiInfo)..' and '..hs.inspect.inspect(type))
+Triggrd.lastWifiRSSI = nil
+Triggrd.lastWifiNetwork = hs.wifi.currentNetwork()
+
+Triggrd.wifiWatcher = hs.wifi.watcher.new(function(watcher, message, interface, rssi, transmitRate)
+    -- check for connect/disconnect/SSIDChange on every event
+    local network = hs.wifi.currentNetwork(interface)
+    if network ~= Triggrd.lastWifiNetwork then
+        local wasConnected = Triggrd.lastWifiNetwork ~= nil
+        Triggrd.lastWifiNetwork = network
+        if network and not wasConnected then
+            Triggrd:handleEvent({
+                tags = {"wifi", "connect", network},
+                data = {
+                    interface = interface,
+                    network = network,
+                    textArgs = {network}
+                }
+            })
+        elseif network and wasConnected then
+            Triggrd:handleEvent({
+                tags = {"wifi", "SSIDChange", network},
+                data = {
+                    interface = interface,
+                    network = network,
+                    textArgs = {network}
+                }
+            })
+        elseif not network and wasConnected then
+            Triggrd:handleEvent({
+                tags = {"wifi", "disconnect"},
+                data = {
+                    interface = interface,
+                    textArgs = {interface or "unknown"}
+                }
+            })
+        end
+    end
+
+    if message == "BSSIDChange" then
+        local details = hs.wifi.interfaceDetails(interface)
+        local bssid = details and details.bssid or "unknown"
+        Triggrd:handleEvent({
+            tags = {"wifi", "BSSIDChange"},
+            data = {
+                interface = interface,
+                bssid = bssid,
+                textArgs = {bssid}
+            }
+        })
+    elseif message == "countryCodeChange" then
+        local details = hs.wifi.interfaceDetails(interface)
+        local countryCode = details and details.countryCode or "unknown"
+        Triggrd:handleEvent({
+            tags = {"wifi", "countryCodeChange", countryCode},
+            data = {
+                interface = interface,
+                countryCode = countryCode,
+                textArgs = {countryCode}
+            }
+        })
+    elseif message == "linkQualityChange" then
+        local absRSSI = math.abs(rssi)
+        local tags = {"wifi", "linkQualityChange", "rssi" .. tostring(absRSSI)}
+        if Triggrd.lastWifiRSSI then
+            if rssi > Triggrd.lastWifiRSSI then
+                table.insert(tags, "up")
+            elseif rssi < Triggrd.lastWifiRSSI then
+                table.insert(tags, "down")
+            end
+        end
+        Triggrd.lastWifiRSSI = rssi
+        Triggrd:handleEvent({
+            tags = tags,
+            data = {
+                interface = interface,
+                rssi = rssi,
+                transmitRate = transmitRate,
+                textArgs = {tostring(rssi), tostring(transmitRate)}
+            }
+        })
+    elseif message == "modeChange" then
+        Triggrd:handleEvent({
+            tags = {"wifi", "modeChange"},
+            data = {
+                interface = interface,
+                textArgs = {interface or "unknown"}
+            }
+        })
+    elseif message == "powerChange" then
+        local details = hs.wifi.interfaceDetails(interface)
+        local power = details and details.power
+        local powerTag = power and "powerOn" or "powerOff"
+        Triggrd:handleEvent({
+            tags = {"wifi", "powerChange", powerTag},
+            data = {
+                interface = interface,
+                power = power,
+                textArgs = {powerTag}
+            }
+        })
+    elseif message == "scanCacheUpdated" then
+        Triggrd:handleEvent({
+            tags = {"wifi", "scanCacheUpdated"},
+            data = {
+                interface = interface,
+                textArgs = {interface or "unknown"}
+            }
+        })
+    end
 end)
+Triggrd.wifiWatcher:watchingFor("all")
 Triggrd.wifiWatcher:start()
+
+-- Internet reachability: passive route detection + active ping verification
+Triggrd.lastInternetReachable = nil
+Triggrd.ipv4Reachable = false
+Triggrd.ipv6Reachable = false
+Triggrd.pingInterval = 60
+Triggrd.pingConsecutiveFailures = 0
+Triggrd.pingConsecutiveSuccesses = 0
+Triggrd.lastPingReachable = nil
+
+local function updateInternetState()
+    local routeExists = Triggrd.ipv4Reachable or Triggrd.ipv6Reachable
+    -- active ping is authoritative once it has data; passive is the fast initial check
+    local reachable
+    if Triggrd.lastPingReachable ~= nil then
+        reachable = Triggrd.lastPingReachable
+    else
+        reachable = routeExists
+    end
+
+    if reachable ~= Triggrd.lastInternetReachable then
+        Triggrd.lastInternetReachable = reachable
+        local tag = reachable and "reachable" or "unreachable"
+        print("internet: " .. tag .. " (route=" .. tostring(routeExists)
+            .. " ping=" .. tostring(Triggrd.lastPingReachable)
+            .. " v4=" .. tostring(Triggrd.ipv4Reachable)
+            .. " v6=" .. tostring(Triggrd.ipv6Reachable) .. ")")
+        Triggrd:handleEvent({
+            tags = {"internet", tag},
+            data = { textArgs = {tag} }
+        })
+    end
+end
+
+-- Passive route watchers
+
+Triggrd.reachabilityV4 = hs.network.reachability.forAddress("0.0.0.0")
+Triggrd.reachabilityV4:setCallback(function(obj, flags)
+    Triggrd.ipv4Reachable = obj:statusString():find("R") ~= nil
+    updateInternetState()
+end)
+Triggrd.reachabilityV4:start()
+
+Triggrd.reachabilityV6 = hs.network.reachability.forAddress("::")
+Triggrd.reachabilityV6:setCallback(function(obj, flags)
+    Triggrd.ipv6Reachable = obj:statusString():find("R") ~= nil
+    updateInternetState()
+end)
+Triggrd.reachabilityV6:start()
+
+-- Active ping checker
+
+local function getPingTargets()
+    local targets = {}
+    for _, t in ipairs(Triggrd.pingTargetsV4) do
+        table.insert(targets, t)
+    end
+    if Triggrd.ipv6Reachable then
+        for _, t in ipairs(Triggrd.pingTargetsV6) do
+            table.insert(targets, t)
+        end
+    end
+    return targets
+end
+
+local function doPingCheck()
+    local targets = getPingTargets()
+    if #targets == 0 then
+        -- no route at all, passive watcher handles this
+        Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingInterval, doPingCheck)
+        return
+    end
+
+    local function tryTarget(index)
+        if index > #targets then
+            -- all targets failed — drop to min interval immediately
+            Triggrd.pingConsecutiveFailures = Triggrd.pingConsecutiveFailures + 1
+            Triggrd.pingConsecutiveSuccesses = 0
+            Triggrd.pingInterval = Triggrd.pingMinInterval
+            print("ping: all targets failed (" .. Triggrd.pingConsecutiveFailures
+                .. " consecutive, next check in " .. Triggrd.pingInterval .. "s)")
+            local failTags = {"ping", "fail"}
+            for _, t in ipairs(targets) do
+                table.insert(failTags, t)
+            end
+            Triggrd:handleEvent({
+                tags = failTags,
+                data = { textArgs = {tostring(Triggrd.pingConsecutiveFailures)} }
+            })
+            if Triggrd.pingConsecutiveFailures >= Triggrd.pingConfirmThreshold then
+                Triggrd.lastPingReachable = false
+                updateInternetState()
+            end
+            Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingInterval, doPingCheck)
+            return
+        end
+
+        local target = targets[index]
+        local gotReply = false
+        hs.network.ping.ping(target, 1, 1, 2, "any", function(self, message)
+            if message == "receivedPacket" then
+                gotReply = true
+                self:cancel()
+                Triggrd.pingConsecutiveSuccesses = Triggrd.pingConsecutiveSuccesses + 1
+                Triggrd.pingConsecutiveFailures = 0
+                Triggrd.pingInterval = math.min(Triggrd.pingInterval * 2, Triggrd.pingMaxInterval)
+                print("ping: " .. target .. " ok (" .. Triggrd.pingConsecutiveSuccesses
+                    .. " consecutive, next check in " .. Triggrd.pingInterval .. "s)")
+                Triggrd:handleEvent({
+                    tags = {"ping", "success", target},
+                    data = { textArgs = {target} }
+                })
+                if Triggrd.pingConsecutiveSuccesses >= Triggrd.pingConfirmThreshold then
+                    Triggrd.lastPingReachable = true
+                    updateInternetState()
+                end
+                Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingInterval, doPingCheck)
+            elseif message == "didFail" then
+                tryTarget(index + 1)
+            elseif message == "didFinish" and not gotReply then
+                tryTarget(index + 1)
+            end
+        end)
+    end
+
+    tryTarget(1)
+end
+
+Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingInterval, doPingCheck)
