@@ -1,18 +1,20 @@
 # Triggrd
 
 React to various system events by creating files with specific names.
+## What's the fork?
+This fork adds wifi and internet connectivity events: notifications when wifi signal strength changes, you connect/disconnect or switch networks, internet becomes reachable or unreachable (verified by active pings, not just route checks), and flap detection that alerts you when your connection is rapidly bouncing between up and down. See the WiFi Events, Internet Reachability Events, and Ping Events sections below for details and configuration.
 
 ## Setup
 
-1. Triggrd is a spoon (plugin) for [Hammerspoon](https://hammerspoon.org). You will need to download and install it first. If you already have and use Hammerspoon, ignore the next step.
-1. Make sure you have a `.hammerspoon`directory in your home folder, and an `init.lua` file in it.
-1. Open `Triggrd.spoon` or copy it to `~/.hammerspoon/spoons/`
-1. Somewhere within your `init.lua` file, add the following lines:
+* Triggrd is a spoon (plugin) for [Hammerspoon](https://hammerspoon.org). You will need to download and install it first. If you already have and use Hammerspoon, ignore the next step.
+* Make sure you have a `.hammerspoon`directory in your home folder, and an `init.lua` file in it.
+* Open `Triggrd.spoon` or copy it to `~/.hammerspoon/spoons/`
+* Somewhere within your `init.lua` file, add the following lines:
 ```lua
 hs.loadSpoon("Triggrd")
 spoon.Triggrd:start()
 ````
-1. There is a set of example event automations in the *My Example Triggrd Automations* directory in this repository. Copy or symlink it into your documents folder if you wish, making sure to remove the word "Example".
+* There is a set of example event automations in the *My Example Triggrd Automations* directory in this repository. Copy or symlink it into your documents folder if you wish, making sure to remove the word "Example".
 
 ### Migrating from SoundNote
 
