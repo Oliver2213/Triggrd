@@ -232,6 +232,38 @@ Fires when all ping targets fail in a check cycle. Includes tags for each target
 
 TXT files may reference one formatstring argument: the consecutive failure count.
 
+### Audio Device Events (audiodevice)
+
+Fires when audio hardware changes.
+
+#### audiodevice.defaultOutputChanged
+
+Fires when the default audio output device changes (e.g. switching from speakers to headphones). Includes a tag with the new device name.
+
+TXT files may reference one formatstring argument: the new device name.
+
+* `audiodevice.defaultOutputChanged.MacBook Pro Speakers` — switched to built-in speakers
+
+#### audiodevice.defaultInputChanged
+
+Fires when the default audio input device changes. Includes a tag with the new device name.
+
+TXT files may reference one formatstring argument: the new device name.
+
+#### audiodevice.added
+
+Fires when an audio device appears (e.g. plugging in headphones, connecting AirPods). Includes a tag with the device name.
+
+TXT files may reference one formatstring argument: the device name.
+
+* `audiodevice.added.AirPods Pro` — AirPods connected
+
+#### audiodevice.removed
+
+Fires when an audio device disappears (e.g. unplugging headphones, disconnecting AirPods). Includes a tag with the device name.
+
+TXT files may reference one formatstring argument: the device name.
+
 ### Volume Events (volume)
 
 * `didMount`

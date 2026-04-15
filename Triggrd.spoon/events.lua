@@ -488,3 +488,55 @@ local function doPingCheck()
 end
 
 Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingInterval, doPingCheck)
+
+-- Audio device events
+
+local function getAudioDeviceNames()
+    local names = {}
+    for _, dev in ipairs(hs.audiodevice.allDevices()) do
+        names[dev:name()] = true
+    end
+    return names
+end
+
+Triggrd.lastAudioDevices = getAudioDeviceNames()
+
+hs.audiodevice.watcher.setCallback(function(event)
+    if event == "dOut" then
+        local dev = hs.audiodevice.defaultOutputDevice()
+        local name = dev and dev:name() or "unknown"
+        Triggrd:handleEvent({
+            tags = {"audiodevice", "defaultOutputChanged", name},
+            data = { textArgs = {name} }
+        })
+    elseif event == "dIn " then
+        local dev = hs.audiodevice.defaultInputDevice()
+        local name = dev and dev:name() or "unknown"
+        Triggrd:handleEvent({
+            tags = {"audiodevice", "defaultInputChanged", name},
+            data = { textArgs = {name} }
+        })
+    elseif event == "dev#" then
+        local current = getAudioDeviceNames()
+        -- detect added devices
+        for name, _ in pairs(current) do
+            if not Triggrd.lastAudioDevices[name] then
+                Triggrd:handleEvent({
+                    tags = {"audiodevice", "added", name},
+                    data = { textArgs = {name} }
+                })
+            end
+        end
+        -- detect removed devices
+        for name, _ in pairs(Triggrd.lastAudioDevices) do
+            if not current[name] then
+                Triggrd:handleEvent({
+                    tags = {"audiodevice", "removed", name},
+                    data = { textArgs = {name} }
+                })
+            end
+        end
+        Triggrd.lastAudioDevices = current
+    end
+end)
+hs.audiodevice.watcher.start()
