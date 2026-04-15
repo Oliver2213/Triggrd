@@ -425,6 +425,16 @@ local function getPingTargets()
 end
 
 local function doPingCheck()
+    -- skip pinging if no automations are listening for internet/ping events
+    local hasListeners = #Triggrd:automationsForTags({"internet", "reachable"}) > 0
+        or #Triggrd:automationsForTags({"internet", "unreachable"}) > 0
+        or #Triggrd:automationsForTags({"ping", "success"}) > 0
+        or #Triggrd:automationsForTags({"ping", "fail"}) > 0
+    if not hasListeners then
+        Triggrd.pingTimer = hs.timer.doAfter(Triggrd.pingMaxInterval, doPingCheck)
+        return
+    end
+
     local targets = getPingTargets()
     if #targets == 0 then
         -- no route at all, passive watcher handles this
